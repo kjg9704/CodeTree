@@ -3,30 +3,21 @@ import java.util.*;
 
 public class Main {
 
-	static class Tree{
-		int num, left_node, right_node;
-		int[] left_cnt_arr;
-		int[] right_cnt_arr;
+	static class Node{
+		int num;
+		int[] alarm_cnt;
 		
-		public Tree(int num, int left_node, int right_node) {
+		public Node(int num) {
 			this.num = num;
-			this.left_node = left_node;
-			this.right_node = right_node;
-			this.left_cnt_arr = new int[21];
-			this.right_cnt_arr = new int[21];
+			this.alarm_cnt = new int[21];
 		}
-		
-		public Tree(int num) {
-			this.num = num;
-			this.left_cnt_arr = new int[21];
-			this.right_cnt_arr = new int[21];
-		}
+
 	}
 	static int N, Q;
 	static int[] auth_arr;
 	static int[] parents;
 	static boolean[] is_off;
-	static Tree[] count_tree;
+	static Node[] count_node;
 	
 	public static void main(String[] args) throws IOException {
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
@@ -39,17 +30,14 @@ public class Main {
 		auth_arr = new int[N + 1];
 		parents = new int[N + 1];
 		is_off = new boolean[N + 1];
-		count_tree = new Tree[N + 1];
+		count_node = new Node[N + 1];
 		
 		for(int i = 0; i <= N; i++) {
-			count_tree[i] = new Tree(i);
+			count_node[i] = new Node(i);
 		}
-		int tmp = 0;
 		for(int i = 0; i < Q; i++) {
 			st = new StringTokenizer(br.readLine());
-			if(tmp == 44) {
-				int aaa= 0;
-			}
+
 			int cmd = Integer.parseInt(st.nextToken());
 			int num = 0;
 			switch(cmd) {
@@ -58,11 +46,6 @@ public class Main {
 				for(int j = 1; j <= N; j++) {
 					int par = Integer.parseInt(st.nextToken());
 					parents[j] = par;
-					if(count_tree[par].left_node == 0) {
-						count_tree[par].left_node = j;
-					}else if(count_tree[par].right_node == 0) {
-						count_tree[par].right_node = j;
-					}
 				}
 				
 				for(int j = 1; j <= N; j++) {
@@ -94,7 +77,6 @@ public class Main {
 				int cnt = countAlarm(num);
 				sb.append(cnt);
 				sb.append("\n");
-				tmp++;
 				break;
 			}
 		}
@@ -106,46 +88,50 @@ public class Main {
 		for(int i = 1; i <= N; i++) {
 			int now = i;
 			int auth = auth_arr[now];
-			
-			dfs(now, auth);
-			
+			on_dfs(now, auth, 1);
 		}
 	}
 	
 	static void onOFF(int idx) {
-		if(!is_off[idx]) {
-			change_dfs(idx, auth_arr[idx], 0);
-			for(int i = 1; i <= 20; i++) {
-				if(count_tree[idx].left_cnt_arr[i] > 0) {
-					swap_dfs(idx, i, count_tree[idx].left_cnt_arr[i], false);
-				}
-				
-				if(count_tree[idx].right_cnt_arr[i] > 0) {
-					swap_dfs(idx, i, count_tree[idx].right_cnt_arr[i], false);
-				}
-			}
-		}else {
-			dfs(idx, auth_arr[idx]);
-			for(int i = 1; i <= 20; i++) {
-				if(count_tree[idx].left_cnt_arr[i] > 0) {
-					swap_dfs(idx, i, count_tree[idx].left_cnt_arr[i], true);
-				}
-				
-				if(count_tree[idx].right_cnt_arr[i] > 0) {
-					swap_dfs(idx, i, count_tree[idx].right_cnt_arr[i], true);
-				}
-			}
+
+		if(is_off[idx]) { // off
+			is_off[idx] = false;
+			alarm_on(idx);
+		}else { // on
+			is_off[idx] = true;
+			alarm_off(idx);
 		}
 		
-		is_off[idx] = !is_off[idx];
+	}
+	
+	static void alarm_on(int idx) {
+		
+		on_dfs(idx, auth_arr[idx], 1);
+		
+		for(int i = 1; i <= 20; i++) {
+			if(count_node[idx].alarm_cnt[i] > 0) {
+				on_dfs(idx, i, count_node[idx].alarm_cnt[i]);
+			}
+		}
+	}
+	
+	static void alarm_off(int idx) {
+	
+		off_dfs(idx, auth_arr[idx], 1);
+		
+		for(int i = 1; i <= 20; i++) {
+			if(count_node[idx].alarm_cnt[i] > 0) {
+				off_dfs(idx, i, count_node[idx].alarm_cnt[i]);
+			}
+		}
 	}
 	
 	static void changeAuth(int idx, int power) {
-		if(!is_off[idx]) {
-			int prev_power = auth_arr[idx];
-			if(power == prev_power) return;
-			
-			change_dfs(idx, prev_power, power);
+		int prev_power = auth_arr[idx];
+		if(power == prev_power) return;
+		if(!is_off[idx]) { // on
+			off_dfs(idx, prev_power, 1);
+			on_dfs(idx, power, 1);
 		}
 		
 		auth_arr[idx] = power;
@@ -157,184 +143,64 @@ public class Main {
 		int parent2 = getParent(idx2);
 		if(parent1 == parent2) return;
 		
-		
-		if(!is_off[idx1]) {
-			int prev_power = auth_arr[idx1];
-			
-			change_dfs(idx1, prev_power, 0);
+		if(!is_off[idx1]) { // 1 is on
+			alarm_off(idx1);
 		}
 		
-		if(!is_off[idx2]) {
-			int prev_power = auth_arr[idx2];
-			
-			change_dfs(idx2, prev_power, 0);
-		}
-		
-		
-		for(int i = 1; i <= 20; i++) {
-			if(!is_off[idx1]) {
-				if(count_tree[idx1].left_cnt_arr[i] > 0) {
-					swap_dfs(idx1, i, count_tree[idx1].left_cnt_arr[i], false);
-				}
-				
-				if(count_tree[idx1].right_cnt_arr[i] > 0) {
-					swap_dfs(idx1, i, count_tree[idx1].right_cnt_arr[i], false);
-				}
-			}
-			
-			if(!is_off[idx2]) {
-				if(count_tree[idx2].left_cnt_arr[i] > 0) {
-					swap_dfs(idx2, i, count_tree[idx2].left_cnt_arr[i], false);
-				}
-				
-				if(count_tree[idx2].right_cnt_arr[i] > 0) {
-					swap_dfs(idx2, i, count_tree[idx2].right_cnt_arr[i], false);
-				}
-			}
-			
-		}
-		
-		if(is_left(parent1, idx1)) {
-			count_tree[parent1].left_node = idx2;
-		}else {
-			count_tree[parent1].right_node = idx2;
-		}
-		
-		if(is_left(parent2, idx2)) {
-			count_tree[parent2].left_node = idx1;
-		}else {
-			count_tree[parent2].right_node = idx1;
+		if(!is_off[idx2]) { // 2 is on
+			alarm_off(idx2);
 		}
 		
 		parents[idx1] = parent2;
 		parents[idx2] = parent1;
 		
-		
-		if(!is_off[idx1]) {
-			int auth = auth_arr[idx1];
-			
-			dfs(idx1, auth);
+		if(!is_off[idx1]) { // 1 is on
+			alarm_on(idx1);
 		}
 		
-		if(!is_off[idx2]) {
-			int auth = auth_arr[idx2];
-			
-			dfs(idx2, auth);
+		if(!is_off[idx2]) { // 2 is on
+			alarm_on(idx2);
+		}
+	}
+	
+	
+	
+	static void off_dfs(int child, int power, int cnt) {
+		if(power == 0 || child == 0) {
+			return;
 		}
 		
+		int parent = getParent(child);
+		if(power > 21) power = 21;
+		count_node[parent].alarm_cnt[power - 1] -= cnt;
+		if(!is_off[parent]) {
+			off_dfs(parent, power - 1, cnt);
+		}
+	}
+	
+	static void on_dfs(int child, int power, int cnt) {
+		if(power == 0 || child == 0) {
+			return;
+		}
 		
-		for(int i = 1; i <= 20; i++) {
-			if(!is_off[idx1]) {
-				if(count_tree[idx1].left_cnt_arr[i] > 0) {
-					swap_dfs(idx1, i, count_tree[idx1].left_cnt_arr[i], true);
-				}
-				
-				if(count_tree[idx1].right_cnt_arr[i] > 0) {
-					swap_dfs(idx1, i, count_tree[idx1].right_cnt_arr[i], true);
-				}
-			}
-			
-			
-			if(!is_off[idx2]) {
-				if(count_tree[idx2].left_cnt_arr[i] > 0) {
-					swap_dfs(idx2, i, count_tree[idx2].left_cnt_arr[i], true);
-				}
-				
-				if(count_tree[idx2].right_cnt_arr[i] > 0) {
-					swap_dfs(idx2, i, count_tree[idx2].right_cnt_arr[i], true);
-				}
-			}
+		int parent = getParent(child);
+
+		if(power > 21) power = 21;
+		count_node[parent].alarm_cnt[power - 1] += cnt;
+		if(!is_off[parent]) {
+			on_dfs(parent, power - 1, cnt);
 		}
 		
 	}
 	
 	static int countAlarm(int idx) {
 		int cnt = 0;
-		
-		int left = count_tree[idx].left_node;
-		int right = count_tree[idx].right_node;
-		if(left > 0 && !is_off[left]) {
-			for(int i = 0; i <= 20; i++) {
-				cnt += count_tree[idx].left_cnt_arr[i];
-			}
-		}
-		
-		if(right > 0 && !is_off[right]) {
-			for(int i = 0; i <= 20; i++) {
-				cnt += count_tree[idx].right_cnt_arr[i];
-			}
+		for(int i = 0; i <= 20; i++) {
+			cnt += count_node[idx].alarm_cnt[i];
 		}
 		
 		return cnt;
 	}
-	
-	static void change_dfs(int child, int prev, int power) {
-		if(child == 0) return;
-		if(prev <= 0 && power <= 0) return;
-		
-		int parent = getParent(child);
-		
-		if(is_left(parent, child)) {
-			if(prev > 0) count_tree[parent].left_cnt_arr[prev - 1]--;
-			if(power > 0) count_tree[parent].left_cnt_arr[power - 1]++;
-			
-		}else {
-			if(prev > 0) count_tree[parent].right_cnt_arr[prev - 1]--;
-			if(power > 0) count_tree[parent].right_cnt_arr[power - 1]++;
-		}
-		
-		change_dfs(parent, prev - 1, power - 1);
-	}
-	
-	static void dfs(int child, int power) {
-		if(power == 0 || child == 0) {
-			return;
-		}
-		
-		int parent = getParent(child);
-		if(is_left(parent, child)) {
-			count_tree[parent].left_cnt_arr[power - 1]++;
-		}else {
-			count_tree[parent].right_cnt_arr[power - 1]++;
-		}
-		
-		dfs(parent, power - 1);
-	}
-	
-	static void swap_dfs(int child, int power, int cnt, boolean add) {
-		if(power == 0 || child == 0) {
-			return;
-		}
-		
-		int parent = getParent(child);
-		if(is_left(parent, child)) {
-			if(add) {
-				count_tree[parent].left_cnt_arr[power - 1] += cnt;
-			}else {
-				count_tree[parent].left_cnt_arr[power - 1] -= cnt;
-			}
-			
-		}else {
-			if(add) {
-				count_tree[parent].right_cnt_arr[power - 1] += cnt;
-			}else {
-				count_tree[parent].right_cnt_arr[power - 1] -= cnt;
-			}
-			
-		}
-		
-		swap_dfs(parent, power - 1, cnt, add);
-	}
-	
-
-	static boolean is_left(int parent, int child) {
-		if(count_tree[parent].left_node == child) {
-			return true;
-		}else {
-			return false;
-		}
-	}
-	
 	
 	static int getParent(int idx) {
 		return parents[idx];
